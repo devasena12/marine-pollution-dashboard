@@ -1,0 +1,41 @@
+Feature,Mean_Absolute_SHAP
+Estimated_Non-fibrous (n kg-1),324.25852060967685
+Estimated_Fibers (n kg-1),299.67488452618977
+Error_type,50.825430494364035
+Plastic_abundance,47.53052513428383
+Dry_bulk_density_DBD (g cm-3),40.64316993261784
+Corrected_Fibers (n cm-3),38.19651380580488
+Corrected_Non-Fibrous (n cm-3),30.534630310937157
+Abundance_fibers (n kg-1),29.40431922532159
+Sampling_method,25.14400809815703
+Correction_factor_size,23.693974971262943
+Corrected_Non-Fibrous (n kg-1),19.841023873104447
+Mitigation_against_contamination,19.39745271471938
+Density_separation_method,19.315044326565538
+Unit,18.68252906975294
+Continent,17.070574972068158
+FTIR_Raman,15.351189497793358
+Habitat_Type,14.856656432802652
+Lower_size_limit (um),14.419500375571454
+Water_Depth (m),12.384757543420713
+Corrected_Fibers (n kg-1),11.180519434211208
+Screening,10.374692000188075
+Longitude ,8.741343936042243
+Distance_land (miles),7.566162093040361
+Mean Population in 110 km radius (no. people km-2),6.710554332251349
+Sediment_accretion (cm y-1),5.448907450109604
+Latitude (N),5.086148917537345
+Recovery_density_separation (%),5.078276105209688
+Estimated_proportion,4.643398808329441
+Proportion_fibers,4.59076684402759
+Thickness (cm),3.5391286970599567
+Depth_max (cm),3.4835067487326925
+Sampling_date,3.4809197554017492
+Upper_size_limit (mm),3.0593254785468753
+OriginalSource_DBD,2.6097568231253643
+Central_depth (cm),2.6031401507024676
+DataSource_DBD,1.5284029351619852
+Number_of_samples,1.4588345812334103
+Depth_min (cm),0.1099114938550301
+Abundance_Non-fibrous (n kg-1),0.0
+(+/-),0.0

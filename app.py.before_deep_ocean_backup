@@ -1,0 +1,238 @@
+
+import os
+import streamlit as st
+import pandas as pd
+
+st.set_page_config(
+    page_title="Marine Pollution AI",
+    page_icon="🌊",
+    layout="wide"
+)
+
+
+# ===== LIGHT OCEAN BLUE THEME =====
+st.markdown("""
+<style>
+.stApp {
+    background-color: #EAF8FF;
+    color: #071B33;
+}
+
+[data-testid="stHeader"] {
+    background-color: #EAF8FF;
+}
+
+[data-testid="stSidebar"] {
+    background-color: #DCEFF8;
+    border-right: 1px solid #BDEBFA;
+}
+
+[data-testid="stSidebar"] * {
+    color: #071B33;
+}
+
+h1, h2, h3 {
+    color: #071B33 !important;
+}
+
+[data-testid="stMetric"] {
+    background-color: #FFFFFF;
+    border: 1px solid #BDEBFA;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(7, 27, 51, 0.05);
+}
+
+[data-testid="stMetricLabel"] {
+    color: #126782;
+}
+
+[data-testid="stMetricValue"] {
+    color: #071B33;
+}
+
+.stButton > button {
+    background-color: #39D5BB;
+    color: #071B33;
+    border: 1px solid #39D5BB;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.stButton > button:hover {
+    background-color: #25BFA7;
+    color: #071B33;
+}
+
+[data-testid="stDataFrame"],
+[data-testid="stTable"] {
+    background-color: #FFFFFF;
+    border-radius: 10px;
+}
+
+hr {
+    border-color: #BDEBFA;
+}
+
+</style>
+""", unsafe_allow_html=True)
+# ===== END OCEAN THEME =====
+
+BASE = os.path.dirname(os.path.abspath(__file__))
+
+def load_csv(filename):
+    path = os.path.join(BASE, filename)
+    if os.path.exists(path):
+        try:
+            return pd.read_csv(path)
+        except Exception as e:
+            st.warning(f"Could not read {filename}: {e}")
+    return pd.DataFrame()
+
+summary = load_csv("dashboard_summary.csv")
+shap_df = load_csv("top_10_shap_features.csv")
+gis = load_csv("hotspot_results.csv")
+hotspots = load_csv("hotspot_ranking.csv")
+comparison = load_csv("final_model_comparison.csv")
+
+st.title("🌊 Marine Pollution Intelligence System")
+st.caption(
+    "CatBoost Prediction | Explainable AI | Hotspot Analysis | QML"
+)
+
+page = st.sidebar.radio(
+    "Navigation",
+    [
+        "🏠 Dashboard",
+        "🔮 Prediction",
+        "🧠 Explainability",
+        "🔥 Hotspots",
+        "⚛️ Quantum ML",
+        "📊 Model Comparison"
+    ]
+)
+
+if page == "🏠 Dashboard":
+    st.header("Marine Pollution Dashboard")
+
+    if not summary.empty and {"Metric", "Value"}.issubset(summary.columns):
+        cols = st.columns(3)
+        metrics = summary["Metric"].dropna().unique()
+
+        for i, metric in enumerate(metrics):
+            value = summary.loc[
+                summary["Metric"] == metric, "Value"
+            ].iloc[0]
+            with cols[i % 3]:
+                st.metric(str(metric), str(value))
+    else:
+        st.info(
+            "Summary file not found. Add dashboard_summary.csv "
+            "to display project statistics."
+        )
+
+    st.subheader("Research Workflow")
+    st.write(
+        "Dataset → Preprocessing → CatBoost Prediction → "
+        "SHAP Explainability → Hotspot Detection → "
+        "Quantum-Classical Comparison"
+    )
+
+elif page == "🔮 Prediction":
+    st.header("Pollution Prediction")
+
+    if "Predicted_Plastic_Abundance" in gis.columns and not gis.empty:
+        index = st.slider(
+            "Select test location",
+            min_value=0,
+            max_value=len(gis) - 1,
+            value=0
+        )
+        row = gis.iloc[index]
+
+        st.metric(
+            "Predicted Plastic Abundance",
+            f"{row['Predicted_Plastic_Abundance']:,.2f}"
+        )
+
+        if "Risk_Level" in gis.columns:
+            st.metric("Risk Level", str(row["Risk_Level"]))
+
+        st.dataframe(row.to_frame("Value"))
+    else:
+        st.warning(
+            "Prediction results are unavailable. Check hotspot_results.csv."
+        )
+
+elif page == "🧠 Explainability":
+    st.header("SHAP Explainability")
+
+    if not shap_df.empty:
+        st.dataframe(shap_df, use_container_width=True)
+
+        if {"Feature", "Mean_Absolute_SHAP"}.issubset(shap_df.columns):
+            chart_df = shap_df.set_index("Feature")[
+                "Mean_Absolute_SHAP"
+            ].head(10)
+            st.bar_chart(chart_df)
+    else:
+        st.info("top_10_shap_features.csv is not available yet.")
+
+elif page == "🔥 Hotspots":
+    st.header("Pollution Hotspot Detection")
+
+    if not hotspots.empty:
+        st.dataframe(hotspots, use_container_width=True)
+    elif not gis.empty:
+        st.dataframe(gis, use_container_width=True)
+    else:
+        st.info("Hotspot result files are not available yet.")
+
+elif page == "⚛️ Quantum ML":
+    st.header("Hybrid Quantum-Classical Machine Learning")
+
+    st.write(
+        "The quantum model is evaluated against the classical "
+        "CatBoost model using the same evaluation metrics."
+    )
+
+    if not comparison.empty and "Model" in comparison.columns:
+        quantum = comparison[
+            comparison["Model"].str.contains(
+                "Quantum", case=False, na=False
+            )
+        ]
+        if not quantum.empty:
+            st.dataframe(quantum, use_container_width=True)
+        else:
+            st.info("Quantum model results are not present.")
+    else:
+        st.info("Save final_model_comparison.csv to display results.")
+
+elif page == "📊 Model Comparison":
+    st.header("Classical vs Quantum Model")
+
+    if not comparison.empty:
+        st.dataframe(comparison, use_container_width=True)
+
+        if {"Model", "MAE", "RMSE"}.issubset(comparison.columns):
+            st.subheader("MAE and RMSE")
+            st.bar_chart(comparison.set_index("Model")[["MAE", "RMSE"]])
+
+        if {"Model", "R2"}.issubset(comparison.columns):
+            st.subheader("R² Score")
+            st.bar_chart(comparison.set_index("Model")[["R2"]])
+
+        if "R2" in comparison.columns:
+            valid = comparison.dropna(subset=["R2"])
+            if not valid.empty:
+                best = valid.loc[valid["R2"].idxmax()]
+                st.success(f"Best model by R²: {best['Model']}")
+    else:
+        st.warning("final_model_comparison.csv is not available.")
+
+st.divider()
+st.caption(
+    "Marine Pollution Research Prototype | "
+    "CatBoost • SHAP • Hotspot Analysis • QML"
+)
