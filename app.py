@@ -16,27 +16,82 @@ st.set_page_config(
 BASE = Path(__file__).parent
 
 # --------------------------------------------------
-# DEEP OCEAN BLUE THEME
+# THEME: HIGH-CONTRAST SIDEBAR + DEEP OCEAN MAIN PAGE
 # --------------------------------------------------
 st.markdown("""
 <style>
+
+/* Main dashboard background */
 .stApp {
     background: linear-gradient(135deg, #071B33, #0B2945);
     color: #EAF8FF;
 }
 
-[data-testid="stHeader"] {
-    background: rgba(7, 27, 51, 0.95);
-}
-
+/* Main page headings */
 h1, h2, h3 {
     color: #39D5BB !important;
 }
 
-p, label, span {
+p, label {
     color: #EAF8FF;
 }
 
+/* Sidebar: light background and dark text */
+[data-testid="stSidebar"] {
+    background: #EAF8FF !important;
+    border-right: 3px solid #39D5BB;
+}
+
+[data-testid="stSidebar"] > div {
+    background: #EAF8FF !important;
+}
+
+/* All sidebar text */
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] div,
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3 {
+    color: #071B33 !important;
+}
+
+/* Sidebar radio buttons */
+[data-testid="stSidebar"] [role="radiogroup"] {
+    gap: 8px;
+}
+
+/* Each navigation option */
+[data-testid="stSidebar"] [role="radiogroup"] label {
+    background-color: #FFFFFF !important;
+    border: 1px solid #B5D9E8 !important;
+    border-radius: 9px !important;
+    padding: 10px 12px !important;
+    margin-bottom: 4px !important;
+    color: #071B33 !important;
+}
+
+/* Navigation option text */
+[data-testid="stSidebar"] [role="radiogroup"] label p,
+[data-testid="stSidebar"] [role="radiogroup"] label span {
+    color: #071B33 !important;
+    font-weight: 600 !important;
+}
+
+/* Selected navigation option */
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+    background-color: #39D5BB !important;
+    border: 2px solid #087F70 !important;
+}
+
+/* Sidebar information box */
+[data-testid="stSidebar"] [data-testid="stAlert"] {
+    background-color: #D5F5EE !important;
+    border: 1px solid #39AFA0 !important;
+}
+
+/* Metric cards */
 [data-testid="stMetric"] {
     background: #102D4A;
     padding: 18px;
@@ -44,25 +99,24 @@ p, label, span {
     border: 1px solid #39D5BB;
 }
 
-[data-testid="stDataFrame"] {
-    border: 1px solid #234D6B;
-    border-radius: 10px;
+[data-testid="stMetricLabel"],
+[data-testid="stMetricValue"] {
+    color: #EAF8FF !important;
 }
 
-.stTabs [data-baseweb="tab"] {
-    color: #EAF8FF;
-}
-
-.stTabs [aria-selected="true"] {
-    color: #39D5BB !important;
-}
-
-div.stButton > button {
+/* Buttons */
+.stButton > button {
     background-color: #39D5BB;
     color: #071B33;
     border-radius: 8px;
     border: none;
     font-weight: bold;
+}
+
+/* Data tables */
+[data-testid="stDataFrame"] {
+    border: 1px solid #234D6B;
+    border-radius: 10px;
 }
 
 </style>
@@ -78,27 +132,25 @@ st.markdown(
 st.caption(
     "Marine microplastic pollution prediction using saved machine learning results."
 )
-
 st.divider()
 
 # --------------------------------------------------
 # SAFE CSV LOADER
 # --------------------------------------------------
 def load_csv(filename):
-    file_path = BASE / filename
+    path = BASE / filename
 
-    if not file_path.exists():
+    if not path.exists():
         return pd.DataFrame()
 
     try:
-        return pd.read_csv(file_path)
+        return pd.read_csv(path)
     except Exception as error:
-        st.warning(f"Could not read {filename}: {error}")
+        st.warning(f"Unable to read {filename}: {error}")
         return pd.DataFrame()
 
-
 # --------------------------------------------------
-# LOAD SAVED RESULTS
+# LOAD SAVED DATA
 # --------------------------------------------------
 summary = load_csv("dashboard_summary.csv")
 predictions = load_csv("gis_predictions.csv")
@@ -109,12 +161,14 @@ comparison = load_csv("final_model_comparison.csv")
 risk = load_csv("prediction_risk_results.csv")
 
 # --------------------------------------------------
-# SIDEBAR
+# SIDEBAR NAVIGATION
 # --------------------------------------------------
-st.sidebar.title("🌊 Navigation")
+st.sidebar.title("🌊 Marine AI")
+st.sidebar.markdown("### Dashboard Navigation")
+st.sidebar.markdown("---")
 
 section = st.sidebar.radio(
-    "Select Dashboard Section",
+    "Choose a section",
     [
         "Overview",
         "GIS Pollution Map",
@@ -123,13 +177,14 @@ section = st.sidebar.radio(
         "SHAP Explainability",
         "Model Comparison",
         "Project Files"
-    ]
+    ],
+    key="dashboard_navigation"
 )
 
 st.sidebar.markdown("---")
 st.sidebar.info(
-    "This dashboard displays previously saved project results. "
-    "It does not retrain the models."
+    "Saved project results are displayed here. "
+    "Models are not retrained by this dashboard."
 )
 
 # --------------------------------------------------
@@ -140,73 +195,17 @@ if section == "Overview":
     st.header("📊 Project Overview")
 
     if not summary.empty:
-        st.subheader("Saved Project Summary")
+        st.subheader("Project Summary")
         st.dataframe(summary, use_container_width=True)
-
-        # Display useful summary metrics if available
-        summary_values = {}
-
-        for _, row in summary.iterrows():
-            if len(row) >= 2:
-                summary_values[str(row.iloc[0]).strip().lower()] = row.iloc[1]
-
-        def find_summary_value(keywords):
-            for key, value in summary_values.items():
-                if any(word in key for word in keywords):
-                    try:
-                        return float(value)
-                    except (ValueError, TypeError):
-                        continue
-            return None
-
-        total_locations = find_summary_value(
-            ["location", "sample", "record", "total"]
-        )
-        average_pollution = find_summary_value(
-            ["average", "mean", "avg"]
-        )
-        maximum_pollution = find_summary_value(
-            ["maximum", "max"]
-        )
-        hotspot_count = find_summary_value(
-            ["hotspot"]
-        )
-
-        metrics = st.columns(4)
-
-        with metrics[0]:
-            if total_locations is not None:
-                st.metric("Total Records", f"{total_locations:,.0f}")
-            else:
-                st.metric("Prediction Records", len(predictions))
-
-        with metrics[1]:
-            if average_pollution is not None:
-                st.metric("Average Pollution", f"{average_pollution:,.2f}")
-            else:
-                st.metric("Prediction Data", "Available" if not predictions.empty else "Not found")
-
-        with metrics[2]:
-            if maximum_pollution is not None:
-                st.metric("Maximum Pollution", f"{maximum_pollution:,.2f}")
-            else:
-                st.metric("Hotspot Records", len(hotspots))
-
-        with metrics[3]:
-            if hotspot_count is not None:
-                st.metric("Hotspot Count", f"{hotspot_count:,.0f}")
-            else:
-                st.metric("Risk Records", len(risk))
-
     else:
-        st.info("dashboard_summary.csv is missing or empty.")
+        st.info("dashboard_summary.csv is not available.")
 
-    st.subheader("📌 Prediction Preview")
+    st.subheader("Prediction Preview")
 
     if not predictions.empty:
         st.dataframe(predictions.head(10), use_container_width=True)
     else:
-        st.warning("gis_predictions.csv is not available.")
+        st.info("GIS prediction data is not available.")
 
 # --------------------------------------------------
 # GIS POLLUTION MAP
@@ -216,18 +215,16 @@ elif section == "GIS Pollution Map":
     st.header("🗺️ GIS-Based Pollution Mapping")
 
     if predictions.empty:
-        st.warning("No GIS prediction data was found.")
+        st.warning("gis_predictions.csv is missing or empty.")
     else:
-        st.subheader("Saved Prediction Records")
         st.dataframe(predictions.head(100), use_container_width=True)
 
-        # Detect common latitude/longitude column names
         column_lookup = {
             str(column).strip().lower(): column
             for column in predictions.columns
         }
 
-        latitude_column = next(
+        lat_col = next(
             (
                 column_lookup[name]
                 for name in ["latitude", "lat"]
@@ -236,7 +233,7 @@ elif section == "GIS Pollution Map":
             None
         )
 
-        longitude_column = next(
+        lon_col = next(
             (
                 column_lookup[name]
                 for name in ["longitude", "lon", "long"]
@@ -245,12 +242,8 @@ elif section == "GIS Pollution Map":
             None
         )
 
-        if latitude_column is not None and longitude_column is not None:
-
-            map_data = predictions[
-                [latitude_column, longitude_column]
-            ].copy()
-
+        if lat_col is not None and lon_col is not None:
+            map_data = predictions[[lat_col, lon_col]].copy()
             map_data.columns = ["latitude", "longitude"]
 
             map_data["latitude"] = pd.to_numeric(
@@ -270,88 +263,74 @@ elif section == "GIS Pollution Map":
             ]
 
             if not map_data.empty:
-                st.subheader("Pollution Sampling Locations")
+                st.subheader("Pollution Locations")
                 st.map(map_data)
                 st.caption(
-                    f"Map displays {len(map_data)} records with valid coordinates."
+                    f"Showing {len(map_data)} valid coordinate records."
                 )
             else:
-                st.info(
-                    "Latitude and longitude columns were found, "
-                    "but no valid coordinates are available."
-                )
-
+                st.info("No valid geographic coordinates were found.")
         else:
             st.warning(
-                "Latitude/Longitude columns were not found in "
-                "gis_predictions.csv. The table is shown above, "
-                "but a geographic map requires actual coordinate columns."
+                "Latitude and longitude columns were not found. "
+                "Actual coordinates are required to plot locations."
             )
 
-        # Show a previously saved interactive map if present
-        html_map = BASE / "marine_pollution_risk_map.html"
+        html_path = BASE / "marine_pollution_risk_map.html"
 
-        if html_map.exists():
-            st.subheader("Saved Interactive Pollution Risk Map")
+        if html_path.exists():
+            st.subheader("Saved Interactive Risk Map")
 
-            with st.expander("Show saved HTML map"):
+            with st.expander("Open saved map"):
                 try:
-                    html_content = html_map.read_text(
-                        encoding="utf-8"
-                    )
-
                     st.components.v1.html(
-                        html_content,
+                        html_path.read_text(encoding="utf-8"),
                         height=600,
                         scrolling=True
                     )
                 except Exception as error:
-                    st.warning(
-                        f"Could not display saved HTML map: {error}"
-                    )
+                    st.warning(f"Unable to display saved map: {error}")
 
 # --------------------------------------------------
 # RISK ASSESSMENT
 # --------------------------------------------------
 elif section == "Risk Assessment":
 
-    st.header("🚦 Marine Pollution Risk Assessment")
+    st.header("🚦 Pollution Risk Assessment")
 
     if not risk.empty:
         st.dataframe(risk.head(200), use_container_width=True)
 
-        # Display risk category counts when a suitable column exists
-        risk_columns = {
+        risk_lookup = {
             str(column).strip().lower(): column
             for column in risk.columns
         }
 
-        risk_column = next(
+        risk_col = next(
             (
-                risk_columns[name]
+                risk_lookup[name]
                 for name in [
                     "risk_level",
                     "risk_category",
                     "pollution_risk",
                     "risk"
                 ]
-                if name in risk_columns
+                if name in risk_lookup
             ),
             None
         )
 
-        if risk_column is not None:
+        if risk_col is not None:
             st.subheader("Risk Category Distribution")
-            risk_counts = (
-                risk[risk_column]
+            counts = (
+                risk[risk_col]
                 .fillna("Unknown")
                 .astype(str)
                 .value_counts()
             )
-            st.bar_chart(risk_counts)
-
+            st.bar_chart(counts)
     else:
-        st.warning("prediction_risk_results.csv is missing or empty.")
+        st.warning("Risk assessment data is unavailable.")
 
 # --------------------------------------------------
 # POLLUTION HOTSPOTS
@@ -364,55 +343,45 @@ elif section == "Pollution Hotspots":
         st.subheader("Hotspot Results")
         st.dataframe(hotspots.head(100), use_container_width=True)
     else:
-        st.info("hotspot_results.csv is not available.")
+        st.info("No hotspot results file was found.")
 
     if not ranking.empty:
         st.subheader("📍 Hotspot Ranking")
         st.dataframe(ranking.head(20), use_container_width=True)
     else:
-        st.info("hotspot_ranking.csv is not available.")
+        st.info("No hotspot ranking file was found.")
 
 # --------------------------------------------------
 # SHAP EXPLAINABILITY
 # --------------------------------------------------
 elif section == "SHAP Explainability":
 
-    st.header("🔎 Explainable AI — SHAP Feature Importance")
+    st.header("🔎 SHAP Feature Importance")
 
     if not shap_data.empty:
-
-        st.subheader("Top 10 Important Features")
         st.dataframe(shap_data.head(10), use_container_width=True)
 
-        # Use the first column as feature labels
-        feature_column = shap_data.columns[0]
-
-        numeric_columns = shap_data.select_dtypes(
+        feature_col = shap_data.columns[0]
+        numeric_cols = shap_data.select_dtypes(
             include="number"
         ).columns.tolist()
 
-        if numeric_columns:
-            selected_column = st.selectbox(
-                "Select feature importance value",
-                numeric_columns
+        if numeric_cols:
+            value_col = st.selectbox(
+                "Select importance metric",
+                numeric_cols
             )
 
             chart_data = shap_data[
-                [feature_column, selected_column]
-            ].copy()
+                [feature_col, value_col]
+            ].dropna()
 
-            chart_data = chart_data.dropna()
-
-            chart_data = chart_data.set_index(feature_column)
-
-            st.subheader("Feature Importance Chart")
-            st.bar_chart(chart_data)
-
+            if not chart_data.empty:
+                chart_data = chart_data.set_index(feature_col)
+                st.subheader("Feature Importance Chart")
+                st.bar_chart(chart_data)
         else:
-            st.info(
-                "No numeric SHAP importance column was found."
-            )
-
+            st.info("No numeric feature importance values were found.")
     else:
         st.warning("top_10_shap_features.csv is missing or empty.")
 
@@ -421,18 +390,16 @@ elif section == "SHAP Explainability":
 # --------------------------------------------------
 elif section == "Model Comparison":
 
-    st.header("🤖 Classical and Hybrid Model Comparison")
+    st.header("🤖 Model Performance Comparison")
 
     if not comparison.empty:
         st.dataframe(comparison, use_container_width=True)
 
-        numeric_comparison = comparison.select_dtypes(
-            include="number"
-        )
+        numeric_data = comparison.select_dtypes(include="number")
 
-        if not numeric_comparison.empty:
-            st.subheader("Numeric Performance Metrics")
-            st.bar_chart(numeric_comparison)
+        if not numeric_data.empty:
+            st.subheader("Performance Metrics")
+            st.bar_chart(numeric_data)
     else:
         st.warning("final_model_comparison.csv is missing or empty.")
 
@@ -443,7 +410,7 @@ elif section == "Project Files":
 
     st.header("📁 Project Files")
 
-    files_to_check = [
+    filenames = [
         "dashboard_summary.csv",
         "gis_predictions.csv",
         "top_10_shap_features.csv",
@@ -459,22 +426,20 @@ elif section == "Project Files":
         "marine_pollution_risk_map.html"
     ]
 
-    file_status = []
+    status = []
 
-    for filename in files_to_check:
-        file_path = BASE / filename
-
-        file_status.append({
+    for filename in filenames:
+        status.append({
             "File": filename,
             "Status": (
-                "Available"
-                if file_path.exists()
-                else "Not found"
+                "✅ Available"
+                if (BASE / filename).exists()
+                else "⚠️ Not found"
             )
         })
 
     st.dataframe(
-        pd.DataFrame(file_status),
+        pd.DataFrame(status),
         use_container_width=True,
         hide_index=True
     )
@@ -483,13 +448,7 @@ elif section == "Project Files":
 # FOOTER
 # --------------------------------------------------
 st.divider()
-
 st.caption(
-    "Marine Pollution AI Dashboard | "
-    "CatBoost • SHAP • GIS • Hotspot Detection • Risk Assessment"
+    "Marine Pollution AI Dashboard | CatBoost • SHAP • GIS • Risk Assessment"
 )
-
-st.success(
-    "Dashboard is using saved project results. "
-    "Model retraining is not performed on this page."
-)
+st.success("Dashboard uses saved results. No model retraining is performed.")
