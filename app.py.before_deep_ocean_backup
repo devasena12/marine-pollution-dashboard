@@ -1,238 +1,758 @@
-
 import os
-import streamlit as st
+import warnings
+warnings.filterwarnings("ignore")
+
+import numpy as np
 import pandas as pd
+import streamlit as st
+import plotly.express as px
+import plotly.graph_objects as go
+
+try:
+    from catboost import CatBoostRegressor
+except Exception:
+    CatBoostRegressor = None
 
 st.set_page_config(
-    page_title="Marine Pollution AI",
+    page_title="Marine Pollution Intelligence",
     page_icon="🌊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# ===== LIGHT OCEAN BLUE THEME =====
 st.markdown("""
 <style>
 .stApp {
-    background-color: #EAF8FF;
-    color: #071B33;
+ background: radial-gradient(ellipse at 12% 0%, rgba(0,190,210,.13), transparent 35%),
+ linear-gradient(145deg,#04111f 0%,#061d31 48%,#082b40 100%);
+ color:#eafaff;
 }
-
-[data-testid="stHeader"] {
-    background-color: #EAF8FF;
-}
-
+[data-testid="stHeader"] {background:rgba(4,17,31,.85);}
 [data-testid="stSidebar"] {
-    background-color: #DCEFF8;
-    border-right: 1px solid #BDEBFA;
+ background:linear-gradient(180deg,#03101d 0%,#08283b 100%);
+ border-right:1px solid rgba(52,211,214,.25);
 }
-
-[data-testid="stSidebar"] * {
-    color: #071B33;
+h1,h2,h3,p,label,span {color:#eafaff;}
+.eyebrow {color:#50e0dc;font-size:.75rem;font-weight:800;letter-spacing:2px;}
+.marine-subtitle {color:#7ddfe4;font-size:1rem;margin-top:-8px;}
+.metric-card {
+ background:linear-gradient(145deg,rgba(11,52,72,.98),rgba(5,27,43,.98));
+ border:1px solid rgba(62,218,218,.30);border-radius:16px;
+ padding:18px 19px;min-height:125px;box-shadow:0 8px 26px rgba(0,0,0,.15);
 }
-
-h1, h2, h3 {
-    color: #071B33 !important;
+.metric-label {color:#a8cbd6;font-size:.79rem;margin-bottom:9px;}
+.metric-value {color:#f4ffff;font-size:1.7rem;line-height:1.2;font-weight:750;overflow-wrap:anywhere;}
+.metric-foot {color:#62d9d4;font-size:.74rem;margin-top:7px;}
+.panel {background:rgba(7,34,50,.72);border:1px solid rgba(89,202,211,.18);border-radius:16px;padding:16px 18px;}
+.section-kicker {color:#62d9d4;font-size:.73rem;font-weight:800;letter-spacing:1.6px;}
+.stButton button,.stDownloadButton button {
+ background:linear-gradient(90deg,#0d9eaa,#16c5bc);color:#041a26;
+ border:0;border-radius:9px;font-weight:750;
 }
-
-[data-testid="stMetric"] {
-    background-color: #FFFFFF;
-    border: 1px solid #BDEBFA;
-    border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 2px 8px rgba(7, 27, 51, 0.05);
-}
-
-[data-testid="stMetricLabel"] {
-    color: #126782;
-}
-
-[data-testid="stMetricValue"] {
-    color: #071B33;
-}
-
-.stButton > button {
-    background-color: #39D5BB;
-    color: #071B33;
-    border: 1px solid #39D5BB;
-    border-radius: 8px;
-    font-weight: 600;
-}
-
-.stButton > button:hover {
-    background-color: #25BFA7;
-    color: #071B33;
-}
-
-[data-testid="stDataFrame"],
-[data-testid="stTable"] {
-    background-color: #FFFFFF;
-    border-radius: 10px;
-}
-
-hr {
-    border-color: #BDEBFA;
-}
-
+div[data-testid="stDataFrame"] {border:1px solid rgba(89,202,211,.2);border-radius:10px;}
 </style>
 """, unsafe_allow_html=True)
-# ===== END OCEAN THEME =====
 
-BASE = os.path.dirname(os.path.abspath(__file__))
 
-def load_csv(filename):
-    path = os.path.join(BASE, filename)
-    if os.path.exists(path):
-        try:
-            return pd.read_csv(path)
-        except Exception as e:
-            st.warning(f"Could not read {filename}: {e}")
-    return pd.DataFrame()
+# ---------- FILE HELPERS ----------
+def find_file(candidates):
+    for filename in candidates:
+        path = os.path.join(BASE_DIR, filename)
+        if os.path.isfile(path):
+            return path
+    return None
 
-summary = load_csv("dashboard_summary.csv")
-shap_df = load_csv("top_10_shap_features.csv")
-gis = load_csv("hotspot_results.csv")
-hotspots = load_csv("hotspot_ranking.csv")
-comparison = load_csv("final_model_comparison.csv")
 
-st.title("🌊 Marine Pollution Intelligence System")
-st.caption(
-    "CatBoost Prediction | Explainable AI | Hotspot Analysis | QML"
+@st.cache_data(show_spinner=False)
+def read_csv(path):
+    if not path or not os.path.isfile(path):
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(path, low_memory=False)
+    except Exception:
+        return pd.DataFrame()
+
+
+GIS_PATH = find_file([
+    "gis_predictions.csv",
+    "marine_pollution_GIS_results.csv",
+    "hotspot_results.csv",
+    "FINAL_MARINE_POLLUTION_RESULTS.csv"
+])
+
+SUMMARY_PATH = find_file(["dashboard_summary.csv"])
+
+SHAP_PATH = find_file([
+    "top_10_shap_features.csv",
+    "shap_importance.csv",
+    "shap_feature_importance.csv"
+])
+
+HOTSPOT_PATH = find_file([
+    "hotspot_results.csv",
+    "hotspot_ranking.csv"
+])
+
+RISK_PATH = find_file(["prediction_risk_results.csv"])
+
+COMPARE_PATH = find_file(["final_model_comparison.csv"])
+
+TEST_PATH = find_file(["test_data.csv", "X_test.csv"])
+
+ACTUAL_PATH = find_file(["actual_values.csv", "y_test.csv"])
+
+MODEL_PATH = find_file([
+    "catboost_model.cbm",
+    "best_catboost_model.cbm",
+    "catboost.cbm"
+])
+
+gis_df = read_csv(GIS_PATH)
+summary_df = read_csv(SUMMARY_PATH)
+shap_df = read_csv(SHAP_PATH)
+hotspot_df = read_csv(HOTSPOT_PATH)
+risk_df = read_csv(RISK_PATH)
+compare_df = read_csv(COMPARE_PATH)
+test_df = read_csv(TEST_PATH)
+actual_df = read_csv(ACTUAL_PATH)
+
+
+# ---------- COLUMN DETECTION ----------
+def first_existing(df, names):
+    if df is None or df.empty:
+        return None
+
+    lower_map = {
+        str(c).strip().lower(): c
+        for c in df.columns
+    }
+
+    for name in names:
+        if name in df.columns:
+            return name
+        if name.strip().lower() in lower_map:
+            return lower_map[name.strip().lower()]
+
+    return None
+
+
+def numeric_values(df, col):
+    if df is None or df.empty or not col:
+        return pd.Series(dtype=float)
+
+    if col not in df.columns:
+        return pd.Series(dtype=float)
+
+    values = pd.to_numeric(df[col], errors="coerce")
+    values = values.replace([np.inf, -np.inf], np.nan)
+
+    return values.dropna()
+
+
+def find_prediction_col(df):
+    return first_existing(df, [
+        "Predicted_Pollution",
+        "predicted_pollution",
+        "Predicted_Abundance",
+        "predicted_abundance",
+        "Prediction",
+        "prediction",
+        "y_pred",
+        "CatBoost_Prediction",
+        "catboost_prediction",
+        "predicted",
+        "Predicted_Value"
+    ])
+
+
+def find_target_col(df):
+    return first_existing(df, [
+        "Plastic_abundance_converted",
+        "Actual",
+        "actual",
+        "Actual_Value",
+        "actual_value",
+        "y_test",
+        "Abundance",
+        "Plastic_Abundance",
+        "Microplastic_Abundance",
+        "Pollution_Value",
+        "Pollution"
+    ])
+
+
+def find_lat_col(df):
+    return first_existing(df, [
+        "Latitude", "latitude", "lat", "LAT", "Y"
+    ])
+
+
+def find_lon_col(df):
+    return first_existing(df, [
+        "Longitude", "longitude", "lon", "long", "LON", "X"
+    ])
+
+
+def find_risk_col(df):
+    return first_existing(df, [
+        "Risk_Level",
+        "risk_level",
+        "Risk Category",
+        "risk_category",
+        "Pollution_Risk",
+        "risk",
+        "Risk"
+    ])
+
+
+def normalize_risk(value):
+    value = str(value).strip().lower()
+
+    if "critical" in value or "very high" in value:
+        return "Critical"
+    if "high" in value:
+        return "High"
+    if "moderate" in value or "medium" in value:
+        return "Moderate"
+    if "low" in value:
+        return "Low"
+
+    return "Unclassified"
+
+
+RISK_COLORS = {
+    "Low": "#39d98a",
+    "Moderate": "#facc15",
+    "High": "#fb923c",
+    "Critical": "#ff5c70",
+    "Unclassified": "#94a3b8"
+}
+
+
+# ---------- STANDARDIZE GIS DATA ----------
+lat_col = find_lat_col(gis_df)
+lon_col = find_lon_col(gis_df)
+pred_col = find_prediction_col(gis_df)
+actual_col = find_target_col(gis_df)
+risk_col = find_risk_col(gis_df)
+
+if not gis_df.empty:
+    source_col = pred_col or actual_col
+
+    if source_col:
+        gis_df["_prediction"] = pd.to_numeric(
+            gis_df[source_col], errors="coerce"
+        )
+    else:
+        gis_df["_prediction"] = np.nan
+
+    if risk_col:
+        gis_df["_risk"] = gis_df[risk_col].map(normalize_risk)
+
+    elif gis_df["_prediction"].notna().sum() >= 4:
+        ranks = gis_df["_prediction"].rank(
+            method="average", pct=True
+        )
+
+        gis_df["_risk"] = np.select(
+            [
+                ranks <= .25,
+                ranks <= .50,
+                ranks <= .75,
+                ranks > .75
+            ],
+            ["Low", "Moderate", "High", "Critical"],
+            default="Unclassified"
+        )
+
+    else:
+        gis_df["_risk"] = "Unclassified"
+
+
+def first_numeric_from_frames(frames, col_finder):
+    for frame in frames:
+        if frame is not None and not frame.empty:
+            col = col_finder(frame)
+            values = numeric_values(frame, col)
+
+            if len(values):
+                return values
+
+    return pd.Series(dtype=float)
+
+
+prediction_values = (
+    numeric_values(gis_df, "_prediction")
+    if not gis_df.empty
+    else pd.Series(dtype=float)
 )
 
+if prediction_values.empty:
+    prediction_values = first_numeric_from_frames(
+        [risk_df, hotspot_df, summary_df, actual_df],
+        find_prediction_col
+    )
+
+actual_values = first_numeric_from_frames(
+    [actual_df, test_df, gis_df],
+    find_target_col
+)
+
+
+@st.cache_resource(show_spinner=False)
+def load_catboost_model(path):
+    if not path or CatBoostRegressor is None:
+        return None
+
+    try:
+        model = CatBoostRegressor()
+        model.load_model(path)
+        return model
+    except Exception:
+        return None
+
+
+cat_model = load_catboost_model(MODEL_PATH)
+
+
+# ---------- SIDEBAR ----------
+st.sidebar.markdown("## 🌊 Marine Intel")
+st.sidebar.caption("CatBoost AI · SHAP · GIS · QML")
+
 page = st.sidebar.radio(
-    "Navigation",
+    "NAVIGATION",
     [
-        "🏠 Dashboard",
-        "🔮 Prediction",
-        "🧠 Explainability",
-        "🔥 Hotspots",
-        "⚛️ Quantum ML",
-        "📊 Model Comparison"
+        "Overview",
+        "AI Pollution Predictor",
+        "Ocean GIS Explorer",
+        "AI Explainability",
+        "Hotspot Analysis",
+        "CatBoost vs QML",
+        "Research Data"
     ]
 )
 
-if page == "🏠 Dashboard":
-    st.header("Marine Pollution Dashboard")
+st.sidebar.markdown("---")
+st.sidebar.caption(
+    "Research prototype · Estimates depend on saved dataset/model files."
+)
 
-    if not summary.empty and {"Metric", "Value"}.issubset(summary.columns):
-        cols = st.columns(3)
-        metrics = summary["Metric"].dropna().unique()
+st.markdown(
+    '<div class="eyebrow">OCEAN ENVIRONMENTAL INTELLIGENCE</div>',
+    unsafe_allow_html=True
+)
 
-        for i, metric in enumerate(metrics):
-            value = summary.loc[
-                summary["Metric"] == metric, "Value"
-            ].iloc[0]
-            with cols[i % 3]:
-                st.metric(str(metric), str(value))
-    else:
-        st.info(
-            "Summary file not found. Add dashboard_summary.csv "
-            "to display project statistics."
+st.title("🌊 Marine Pollution Intelligence")
+
+st.markdown(
+    '<div class="marine-subtitle">'
+    'AI Prediction | Explainable AI | GIS Hotspots | '
+    'Quantum–Classical Comparison</div>',
+    unsafe_allow_html=True
+)
+
+st.write("")
+
+# ---------- SHAP EXPLAINABILITY ----------
+elif page == "AI Explainability":
+
+    st.subheader("🧠 AI Explainability — SHAP")
+
+    if shap_df.empty:
+        st.warning(
+            "SHAP CSV was not found. Add top_10_shap_features.csv "
+            "or shap_importance.csv beside app.py."
         )
 
-    st.subheader("Research Workflow")
-    st.write(
-        "Dataset → Preprocessing → CatBoost Prediction → "
-        "SHAP Explainability → Hotspot Detection → "
-        "Quantum-Classical Comparison"
+    else:
+        feature_col = first_existing(
+            shap_df,
+            [
+                "Feature", "feature",
+                "Feature_Name", "feature_name", "name"
+            ]
+        )
+
+        importance_col = first_existing(
+            shap_df,
+            [
+                "SHAP_Importance",
+                "shap_importance",
+                "Mean_SHAP",
+                "mean_shap",
+                "Importance",
+                "importance",
+                "mean_abs_shap",
+                "MeanAbsSHAP"
+            ]
+        )
+
+        if feature_col and importance_col:
+            view = shap_df[
+                [feature_col, importance_col]
+            ].copy()
+
+            view[importance_col] = pd.to_numeric(
+                view[importance_col], errors="coerce"
+            )
+
+            view = (
+                view.dropna()
+                .sort_values(
+                    importance_col, ascending=False
+                )
+                .head(20)
+            )
+
+            if not view.empty:
+                fig = px.bar(
+                    view.sort_values(importance_col),
+                    x=importance_col,
+                    y=feature_col,
+                    orientation="h",
+                    color=importance_col,
+                    color_continuous_scale=[
+                        "#0c6578", "#1bd4c4"
+                    ]
+                )
+
+                fig.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font_color="#eafaff",
+                    height=max(400, len(view) * 28),
+                    coloraxis_showscale=False,
+                    xaxis_title="Saved feature importance",
+                    yaxis_title=""
+                )
+
+                st.plotly_chart(
+                    fig, use_container_width=True
+                )
+
+                st.dataframe(
+                    view.sort_values(
+                        importance_col, ascending=False
+                    ),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+            else:
+                st.info(
+                    "SHAP file has no valid numeric importance values."
+                )
+
+        else:
+            st.error(
+                "Could not identify feature and importance columns."
+            )
+
+            st.dataframe(
+                shap_df.head(50),
+                use_container_width=True
+            )
+
+
+# ---------- HOTSPOT ANALYSIS ----------
+elif page == "Hotspot Analysis":
+
+    st.subheader("🔥 Marine Pollution Hotspot Analysis")
+
+    source = (
+        gis_df.copy()
+        if not gis_df.empty
+        else pd.DataFrame()
     )
 
-elif page == "🔮 Prediction":
-    st.header("Pollution Prediction")
+    if source.empty or not source["_prediction"].notna().any():
 
-    if "Predicted_Plastic_Abundance" in gis.columns and not gis.empty:
-        index = st.slider(
-            "Select test location",
-            min_value=0,
-            max_value=len(gis) - 1,
-            value=0
+        if not hotspot_df.empty:
+            st.info(
+                "Showing saved hotspot output because GIS "
+                "predictions are unavailable."
+            )
+
+            st.dataframe(
+                hotspot_df,
+                use_container_width=True,
+                hide_index=True
+            )
+
+            st.download_button(
+                "Download hotspot CSV",
+                hotspot_df.to_csv(
+                    index=False
+                ).encode("utf-8"),
+                file_name="marine_pollution_hotspots.csv",
+                mime="text/csv"
+            )
+
+        else:
+            st.warning(
+                "No valid pollution prediction column or "
+                "saved hotspot file was found."
+            )
+
+    else:
+        percentile = st.slider(
+            "Hotspot threshold percentile",
+            80, 99, 95, 1
         )
-        row = gis.iloc[index]
+
+        values = source["_prediction"].dropna()
+
+        threshold = float(
+            values.quantile(percentile / 100)
+        )
+
+        hotspots = source[
+            source["_prediction"] >= threshold
+        ].copy()
 
         st.metric(
-            "Predicted Plastic Abundance",
-            f"{row['Predicted_Plastic_Abundance']:,.2f}"
+            "Candidate hotspot locations",
+            f"{len(hotspots):,}"
         )
 
-        if "Risk_Level" in gis.columns:
-            st.metric("Risk Level", str(row["Risk_Level"]))
-
-        st.dataframe(row.to_frame("Value"))
-    else:
-        st.warning(
-            "Prediction results are unavailable. Check hotspot_results.csv."
+        st.write(
+            f"Pollution threshold at the {percentile}th "
+            f"percentile: **{threshold:,.3f}**"
         )
 
-elif page == "🧠 Explainability":
-    st.header("SHAP Explainability")
+        st.caption(
+            "These are candidate hotspots selected by prediction "
+            "percentile, not a formal statistical cluster test."
+        )
 
-    if not shap_df.empty:
-        st.dataframe(shap_df, use_container_width=True)
+        if lat_col and lon_col and not hotspots.empty:
+            hotspots[lat_col] = pd.to_numeric(
+                hotspots[lat_col], errors="coerce"
+            )
 
-        if {"Feature", "Mean_Absolute_SHAP"}.issubset(shap_df.columns):
-            chart_df = shap_df.set_index("Feature")[
-                "Mean_Absolute_SHAP"
-            ].head(10)
-            st.bar_chart(chart_df)
-    else:
-        st.info("top_10_shap_features.csv is not available yet.")
+            hotspots[lon_col] = pd.to_numeric(
+                hotspots[lon_col], errors="coerce"
+            )
 
-elif page == "🔥 Hotspots":
-    st.header("Pollution Hotspot Detection")
+            map_hot = hotspots.dropna(
+                subset=[lat_col, lon_col]
+            )
 
-    if not hotspots.empty:
-        st.dataframe(hotspots, use_container_width=True)
-    elif not gis.empty:
-        st.dataframe(gis, use_container_width=True)
-    else:
-        st.info("Hotspot result files are not available yet.")
+            if not map_hot.empty:
+                fig = px.scatter_mapbox(
+                    map_hot,
+                    lat=lat_col,
+                    lon=lon_col,
+                    color="_prediction",
+                    color_continuous_scale=[
+                        "#fb923c", "#fb334f"
+                    ],
+                    hover_data=[
+                        c for c in [pred_col, risk_col]
+                        if c and c in map_hot.columns
+                    ],
+                    zoom=1,
+                    height=450,
+                    mapbox_style="carto-darkmatter"
+                )
 
-elif page == "⚛️ Quantum ML":
-    st.header("Hybrid Quantum-Classical Machine Learning")
+                fig.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    font_color="#eafaff",
+                    margin=dict(l=0, r=0, t=5, b=0)
+                )
 
-    st.write(
-        "The quantum model is evaluated against the classical "
-        "CatBoost model using the same evaluation metrics."
-    )
+                st.plotly_chart(
+                    fig, use_container_width=True
+                )
 
-    if not comparison.empty and "Model" in comparison.columns:
-        quantum = comparison[
-            comparison["Model"].str.contains(
-                "Quantum", case=False, na=False
+        st.dataframe(
+            hotspots.sort_values(
+                "_prediction", ascending=False
+            ),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.download_button(
+            "Download hotspot CSV",
+            hotspots.to_csv(
+                index=False
+            ).encode("utf-8"),
+            file_name="marine_pollution_hotspots.csv",
+            mime="text/csv"
+        )
+
+
+# ---------- CATBOOST VS QML ----------
+elif page == "CatBoost vs QML":
+
+    st.subheader("⚛️ Quantum–Classical Model Comparison")
+
+    if not compare_df.empty:
+        st.dataframe(
+            compare_df,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        numeric_cols = [
+            c for c in compare_df.columns
+            if pd.api.types.is_numeric_dtype(
+                compare_df[c]
             )
         ]
-        if not quantum.empty:
-            st.dataframe(quantum, use_container_width=True)
-        else:
-            st.info("Quantum model results are not present.")
+
+        if numeric_cols:
+            metric = st.selectbox(
+                "Metric to visualize", numeric_cols
+            )
+
+            name_col = first_existing(
+                compare_df,
+                ["Model", "model", "Algorithm", "algorithm", "Method"]
+            )
+
+            if name_col:
+                fig = px.bar(
+                    compare_df,
+                    x=name_col,
+                    y=metric,
+                    color=name_col,
+                    text=metric
+                )
+
+                fig.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font_color="#eafaff",
+                    height=380,
+                    showlegend=False
+                )
+
+                st.plotly_chart(
+                    fig, use_container_width=True
+                )
+
     else:
-        st.info("Save final_model_comparison.csv to display results.")
+        st.caption(
+            "Showing previously recorded evaluation values. "
+            "Update them if your latest experiment differs."
+        )
 
-elif page == "📊 Model Comparison":
-    st.header("Classical vs Quantum Model")
+        comparison = pd.DataFrame({
+            "Model": [
+                "CatBoost",
+                "Hybrid Quantum-Classical"
+            ],
+            "MAE": [
+                629.2820,
+                1157.3159
+            ],
+            "RMSE": [
+                9351.6746,
+                11517.7038
+            ],
+            "R²": [
+                0.3340,
+                -0.0102
+            ]
+        })
 
-    if not comparison.empty:
-        st.dataframe(comparison, use_container_width=True)
+        st.dataframe(
+            comparison,
+            use_container_width=True,
+            hide_index=True
+        )
 
-        if {"Model", "MAE", "RMSE"}.issubset(comparison.columns):
-            st.subheader("MAE and RMSE")
-            st.bar_chart(comparison.set_index("Model")[["MAE", "RMSE"]])
+        metric = st.selectbox(
+            "Metric to visualize",
+            ["MAE", "RMSE", "R²"]
+        )
 
-        if {"Model", "R2"}.issubset(comparison.columns):
-            st.subheader("R² Score")
-            st.bar_chart(comparison.set_index("Model")[["R2"]])
+        fig = px.bar(
+            comparison,
+            x="Model",
+            y=metric,
+            color="Model",
+            color_discrete_map={
+                "CatBoost": "#27c8c1",
+                "Hybrid Quantum-Classical": "#f59e70"
+            },
+            text=metric
+        )
 
-        if "R2" in comparison.columns:
-            valid = comparison.dropna(subset=["R2"])
-            if not valid.empty:
-                best = valid.loc[valid["R2"].idxmax()]
-                st.success(f"Best model by R²: {best['Model']}")
-    else:
-        st.warning("final_model_comparison.csv is not available.")
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#eafaff",
+            height=380,
+            showlegend=False
+        )
 
-st.divider()
+        fig.update_traces(
+            texttemplate="%{text:.4f}",
+            textposition="outside",
+            cliponaxis=False
+        )
+
+        st.plotly_chart(
+            fig, use_container_width=True
+        )
+
+        st.info(
+            "On these recorded results, CatBoost has lower MAE/RMSE "
+            "and higher R². These values are specific to the "
+            "current evaluation split."
+        )
+
+
+# ---------- RESEARCH DATA & DOWNLOADS ----------
+elif page == "Research Data":
+
+    st.subheader("📁 Research Data & Downloads")
+
+    files = [
+        ("GIS predictions", gis_df, "gis_predictions.csv"),
+        ("Dashboard summary", summary_df, "dashboard_summary.csv"),
+        ("SHAP importance", shap_df, "shap_importance.csv"),
+        ("Hotspot results", hotspot_df, "hotspot_results.csv"),
+        ("Risk results", risk_df, "prediction_risk_results.csv"),
+        ("Model comparison", compare_df, "final_model_comparison.csv"),
+        ("Test features", test_df, "test_data.csv"),
+        ("Actual values", actual_df, "actual_values.csv")
+    ]
+
+    for label, frame, filename in files:
+        with st.expander(
+            f"{label} · {len(frame):,} rows"
+        ):
+            if frame.empty:
+                st.caption("File not found or empty.")
+
+            else:
+                st.dataframe(
+                    frame.head(100),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                st.download_button(
+                    f"Download {filename}",
+                    frame.to_csv(
+                        index=False
+                    ).encode("utf-8"),
+                    file_name=filename,
+                    mime="text/csv",
+                    key=f"download_{filename}"
+                )
+
+
+st.markdown("---")
+
 st.caption(
-    "Marine Pollution Research Prototype | "
-    "CatBoost • SHAP • Hotspot Analysis • QML"
+    "Marine Pollution Intelligence · Research prototype · "
+    "No live ocean sensor feed is connected."
 )
