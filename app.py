@@ -22,7 +22,7 @@ except Exception:
 # ============================================================
 
 st.set_page_config(
-    page_title="Marine Pollution Intelligence V2",
+    page_title="Marine Pollution Intelligence",
     page_icon="🌊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -34,8 +34,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 st.markdown("""
 <style>
 .stApp {
- background: radial-gradient(ellipse at 10% 0%, rgba(34,211,238,.22), transparent 34%),
- linear-gradient(145deg,#020617 0%,#0b1738 48%,#102c4a 100%);
+ background: radial-gradient(ellipse at 12% 0%, rgba(0,190,210,.13), transparent 35%),
+ linear-gradient(145deg,#04111f 0%,#061d31 48%,#082b40 100%);
  color:#eafaff;
 }
 [data-testid="stHeader"] {background:rgba(4,17,31,.85);}
@@ -48,16 +48,16 @@ h1,h2,h3,p,label,span {color:#eafaff;}
 .marine-subtitle {color:#7ddfe4;font-size:1rem;margin-top:-8px;}
 .metric-card {
  background:linear-gradient(145deg,rgba(11,52,72,.98),rgba(5,27,43,.98));
- border:1px solid rgba(34,211,238,.60);border-radius:16px;
+ border:1px solid rgba(62,218,218,.30);border-radius:16px;
  padding:18px 19px;min-height:125px;box-shadow:0 8px 26px rgba(0,0,0,.15);
 }
 .metric-label {color:#a8cbd6;font-size:.79rem;margin-bottom:9px;letter-spacing:.4px;}
 .metric-value {color:#f4ffff;font-size:1.7rem;line-height:1.2;font-weight:750;overflow-wrap:anywhere;}
 .metric-foot {color:#62d9d4;font-size:.74rem;margin-top:7px;}
-.panel {background:rgba(10,25,55,.88);border:1px solid rgba(56,189,248,.42);border-radius:16px;padding:16px 18px;}
+.panel {background:rgba(7,34,50,.72);border:1px solid rgba(89,202,211,.18);border-radius:16px;padding:16px 18px;}
 .section-kicker {color:#62d9d4;font-size:.73rem;font-weight:800;letter-spacing:1.6px;}
 .stButton button,.stDownloadButton button {
- background:linear-gradient(90deg,#22d3ee,#a3e635);color:#04111f;
+ background:linear-gradient(90deg,#0d9eaa,#16c5bc);color:#041a26;
  border:0;border-radius:9px;font-weight:750;
 }
 div[data-testid="stDataFrame"] {border:1px solid rgba(89,202,211,.45);border-radius:10px;}
@@ -91,6 +91,6 @@ def read_csv(path):
     except Exception:
         return pd.DataFrame()
 
-GIS_PATH = find_file(["gis_predictions.csv", "marine_pollution_GIS_results.csv", "hotspot_results.csv", "FINAL_MARINE_POLLUTION_RESULTS.csv"])
-SUMMARY_PATH = find_file(["dashboard_summary.csv"])
-SHAP_PATH = find_file(["top_10_shap_features.csv", "shap_importance.csv",
+GIS_PATH = find_file([
+    "gis_predictions.csv", "marine_pollution_GIS_results.csv",
+    "hotspot_results.csv", "FINAL_MARINE_POLLUTION_RESULTS.csv"
