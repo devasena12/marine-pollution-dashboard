@@ -14,7 +14,7 @@ from streamlit_folium import st_folium
 # ============================================================
 # MARINE POLLUTION INTELLIGENCE DASHBOARD  (full project)
 # Pages (left sidebar): Overview, Hotspot Map, Risk Analysis,
-#                       Trends & Categories, Prediction, Data Explorer
+#                       Prediction, Data Explorer
 # Put this file in the same folder as your CSV.
 # ============================================================
 
@@ -213,14 +213,6 @@ def prepare(df):
     return df, lat_c, lon_c, score_c
 
 
-def find_date_col(df):
-    for name in ["date", "datetime", "timestamp", "year", "month", "time"]:
-        c = pick_col(df, [name])
-        if c is not None:
-            return c
-    return None
-
-
 # ---------------- Load data ----------------
 raw = read_csv(GIS_PATH)
 if raw.empty:
@@ -248,7 +240,6 @@ PAGES = [
     "🏠 Overview",
     "🗺️ Hotspot Map",
     "📊 Risk Analysis",
-    "📈 Trends & Categories",
     "🤖 Prediction",
     "🗂️ Data Explorer",
 ]
@@ -267,7 +258,7 @@ pcts = (counts / total * 100).round(1) if total else counts.astype(float)
 
 st.markdown('<div class="eyebrow">OCEAN MONITORING</div>', unsafe_allow_html=True)
 st.title("🌊 Marine Pollution Intelligence Dashboard")
-st.markdown('<div class="marine-subtitle">Pollution risk levels, hotspots, trends and prediction</div>',
+st.markdown('<div class="marine-subtitle">Pollution risk levels, hotspots and prediction</div>',
             unsafe_allow_html=True)
 
 if data.empty:
@@ -434,58 +425,9 @@ elif page == PAGES[2]:
         st.plotly_chart(style_fig(hm, height=460))
 
 # =====================================================================
-# PAGE 4: TRENDS & CATEGORIES
+# PAGE 4: PREDICTION
 # =====================================================================
 elif page == PAGES[3]:
-    st.subheader("Trends & Categories")
-
-    date_c = find_date_col(data)
-    st.markdown("**Risk levels over time**")
-    if date_c is None:
-        st.info("No date / year / month column found, so the time trend is not available.")
-    else:
-        t = data.copy()
-        if "year" in date_c.lower() and pd.api.types.is_numeric_dtype(t[date_c]):
-            t["_period"] = t[date_c].astype("Int64").astype(str)
-        else:
-            parsed = pd.to_datetime(t[date_c], errors="coerce")
-            if parsed.notna().sum() > 0:
-                t["_period"] = parsed.dt.to_period("M").astype(str)
-            else:
-                t["_period"] = t[date_c].astype(str)
-        t = t[t["_period"].notna() & (t["_period"] != "NaT")]
-        trend = (t.groupby(["_period", "Risk Level"]).size()
-                 .reset_index(name="Records").sort_values("_period"))
-        if trend.empty:
-            st.info("Could not build a time trend from the date column.")
-        else:
-            fig = px.line(trend, x="_period", y="Records", color="Risk Level", markers=True,
-                          color_discrete_map=LEVEL_COLORS,
-                          category_orders={"Risk Level": LEVELS},
-                          labels={"_period": date_c})
-            st.plotly_chart(style_fig(fig, height=380))
-
-    st.markdown("**Risk level by category**")
-    cat_cols = [c for c in data.columns
-                if c != "Risk Level" and data[c].dtype == object
-                and 2 <= data[c].nunique() <= 40]
-    if not cat_cols:
-        st.info("No suitable category columns (e.g. region, pollutant type) found.")
-    else:
-        cat = st.selectbox("Group by", cat_cols)
-        ct = pd.crosstab(data[cat], data["Risk Level"]).reindex(columns=LEVELS, fill_value=0)
-        ct_pct = (ct.div(ct.sum(axis=1).replace(0, np.nan), axis=0) * 100).round(1)
-        long = ct_pct.reset_index().melt(id_vars=cat, var_name="Risk Level", value_name="Percent")
-        fig = px.bar(long, x=cat, y="Percent", color="Risk Level",
-                     color_discrete_map=LEVEL_COLORS,
-                     category_orders={"Risk Level": LEVELS}, barmode="stack")
-        st.plotly_chart(style_fig(fig, height=420))
-        show_df(ct)
-
-# =====================================================================
-# PAGE 5: PREDICTION
-# =====================================================================
-elif page == PAGES[4]:
     st.subheader("Pollution Prediction")
     if not SCORE:
         st.info("A numeric score column is needed to train a prediction model.")
@@ -583,7 +525,7 @@ elif page == PAGES[4]:
     st.plotly_chart(style_fig(fi, height=380))
 
 # =====================================================================
-# PAGE 6: DATA EXPLORER
+# PAGE 5: DATA EXPLORER
 # =====================================================================
 else:
     st.subheader("Data Explorer")
