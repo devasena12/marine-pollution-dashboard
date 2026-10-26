@@ -1,6 +1,7 @@
 
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from pathlib import Path
 
 # --------------------------------------------------
@@ -20,14 +21,11 @@ BASE = Path(__file__).parent
 # --------------------------------------------------
 st.markdown("""
 <style>
-
-/* Main dashboard background */
 .stApp {
     background: linear-gradient(135deg, #071B33, #0B2945);
     color: #EAF8FF;
 }
 
-/* Main page headings */
 h1, h2, h3 {
     color: #39D5BB !important;
 }
@@ -36,7 +34,6 @@ p, label {
     color: #EAF8FF;
 }
 
-/* Sidebar: light background and dark text */
 [data-testid="stSidebar"] {
     background: #EAF8FF !important;
     border-right: 3px solid #39D5BB;
@@ -46,7 +43,6 @@ p, label {
     background: #EAF8FF !important;
 }
 
-/* All sidebar text */
 [data-testid="stSidebar"] p,
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] span,
@@ -57,12 +53,10 @@ p, label {
     color: #071B33 !important;
 }
 
-/* Sidebar radio buttons */
 [data-testid="stSidebar"] [role="radiogroup"] {
     gap: 8px;
 }
 
-/* Each navigation option */
 [data-testid="stSidebar"] [role="radiogroup"] label {
     background-color: #FFFFFF !important;
     border: 1px solid #B5D9E8 !important;
@@ -72,26 +66,22 @@ p, label {
     color: #071B33 !important;
 }
 
-/* Navigation option text */
 [data-testid="stSidebar"] [role="radiogroup"] label p,
 [data-testid="stSidebar"] [role="radiogroup"] label span {
     color: #071B33 !important;
     font-weight: 600 !important;
 }
 
-/* Selected navigation option */
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
     background-color: #39D5BB !important;
     border: 2px solid #087F70 !important;
 }
 
-/* Sidebar information box */
 [data-testid="stSidebar"] [data-testid="stAlert"] {
     background-color: #D5F5EE !important;
     border: 1px solid #39AFA0 !important;
 }
 
-/* Metric cards */
 [data-testid="stMetric"] {
     background: #102D4A;
     padding: 18px;
@@ -104,7 +94,6 @@ p, label {
     color: #EAF8FF !important;
 }
 
-/* Buttons */
 .stButton > button {
     background-color: #39D5BB;
     color: #071B33;
@@ -113,12 +102,10 @@ p, label {
     font-weight: bold;
 }
 
-/* Data tables */
 [data-testid="stDataFrame"] {
     border: 1px solid #234D6B;
     border-radius: 10px;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -126,12 +113,15 @@ p, label {
 # HEADER
 # --------------------------------------------------
 st.title("🌊 AI-Based Marine Pollution Prediction")
+
 st.markdown(
     "### Explainable AI • CatBoost • GIS Hotspots • Spatial Risk Assessment"
 )
+
 st.caption(
     "Marine microplastic pollution prediction using saved machine learning results."
 )
+
 st.divider()
 
 # --------------------------------------------------
@@ -182,6 +172,7 @@ section = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
+
 st.sidebar.info(
     "Saved project results are displayed here. "
     "Models are not retrained by this dashboard."
@@ -265,6 +256,7 @@ elif section == "GIS Pollution Map":
             if not map_data.empty:
                 st.subheader("Pollution Locations")
                 st.map(map_data)
+
                 st.caption(
                     f"Showing {len(map_data)} valid coordinate records."
                 )
@@ -292,7 +284,7 @@ elif section == "GIS Pollution Map":
                     st.warning(f"Unable to display saved map: {error}")
 
 # --------------------------------------------------
-# RISK ASSESSMENT
+# RISK ASSESSMENT — ONLY CHART COLORS CHANGED
 # --------------------------------------------------
 elif section == "Risk Assessment":
 
@@ -322,13 +314,73 @@ elif section == "Risk Assessment":
 
         if risk_col is not None:
             st.subheader("Risk Category Distribution")
+
             counts = (
                 risk[risk_col]
                 .fillna("Unknown")
                 .astype(str)
+                .str.strip()
+                .str.title()
                 .value_counts()
             )
-            st.bar_chart(counts)
+
+            risk_colors = {
+                "Low": "#39D98A",
+                "Moderate": "#FFD166",
+                "High": "#FF9F43",
+                "Critical": "#FF5C6C",
+                "Unknown": "#94A3B8"
+            }
+
+            chart_data = counts.rename_axis(
+                "Risk Level"
+            ).reset_index(name="Count")
+
+            chart_data["Color"] = chart_data["Risk Level"].map(
+                risk_colors
+            ).fillna("#94A3B8")
+
+            fig = px.bar(
+                chart_data,
+                x="Risk Level",
+                y="Count",
+                color="Risk Level",
+                color_discrete_map=risk_colors,
+                category_orders={
+                    "Risk Level": [
+                        "Low",
+                        "Moderate",
+                        "High",
+                        "Critical",
+                        "Unknown"
+                    ]
+                },
+                text="Count"
+            )
+
+            fig.update_traces(
+                textposition="outside"
+            )
+
+            fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#EAF8FF"),
+                xaxis_title="Risk Category",
+                yaxis_title="Number of Records",
+                showlegend=False
+            )
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
+
+        else:
+            st.warning(
+                "Risk category column was not found in the risk data."
+            )
     else:
         st.warning("Risk assessment data is unavailable.")
 
@@ -362,6 +414,7 @@ elif section == "SHAP Explainability":
         st.dataframe(shap_data.head(10), use_container_width=True)
 
         feature_col = shap_data.columns[0]
+
         numeric_cols = shap_data.select_dtypes(
             include="number"
         ).columns.tolist()
@@ -378,6 +431,7 @@ elif section == "SHAP Explainability":
 
             if not chart_data.empty:
                 chart_data = chart_data.set_index(feature_col)
+
                 st.subheader("Feature Importance Chart")
                 st.bar_chart(chart_data)
         else:
@@ -448,7 +502,9 @@ elif section == "Project Files":
 # FOOTER
 # --------------------------------------------------
 st.divider()
+
 st.caption(
     "Marine Pollution AI Dashboard | CatBoost • SHAP • GIS • Risk Assessment"
 )
+
 st.success("Dashboard uses saved results. No model retraining is performed.")
