@@ -60,7 +60,17 @@ h1,h2,h3,p,label,span {color:#eafaff;}
  background:linear-gradient(90deg,#0d9eaa,#16c5bc);color:#041a26;
  border:0;border-radius:9px;font-weight:750;
 }
-div[data-testid="stDataFrame"] {border:1px solid rgba(89,202,211,.2);border-radius:10px;}
+div[data-testid="stDataFrame"] {border:1px solid rgba(89,202,211,.45);border-radius:10px;}
+/* Force readable text in Streamlit's small metric/info containers */
+div[data-testid="stMetric"] {background:linear-gradient(145deg,#092f45,#061d30)!important;border:1px solid #1b8292!important;border-radius:14px!important;padding:16px!important;min-height:112px!important;}
+div[data-testid="stMetricLabel"],div[data-testid="stMetricLabel"] p {color:#c5f3ff!important;font-size:.95rem!important;font-weight:700!important;opacity:1!important;}
+div[data-testid="stMetricValue"],div[data-testid="stMetricValue"] div {color:#ffffff!important;font-size:1.65rem!important;font-weight:850!important;opacity:1!important;}
+div[data-testid="stMetricDelta"] {color:#5eead4!important;}
+div[data-testid="stAlert"] {background:#092d43!important;color:#ffffff!important;border:1px solid #21a6b4!important;border-radius:12px!important;}
+div[data-testid="stAlert"] p, div[data-testid="stAlert"] span {color:#ffffff!important;opacity:1!important;}
+.stCaption, [data-testid="stCaptionContainer"] {color:#c2e8f2!important;}
+[data-testid="stProgressBar"] div[role="progressbar"] {background:#12384b!important;}
+[data-testid="stDataFrame"] * {color:#f4fbff!important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -84,13 +94,3 @@ def read_csv(path):
 GIS_PATH = find_file([
     "gis_predictions.csv", "marine_pollution_GIS_results.csv",
     "hotspot_results.csv", "FINAL_MARINE_POLLUTION_RESULTS.csv"
-])
-SUMMARY_PATH = find_file(["dashboard_summary.csv"])
-SHAP_PATH = find_file(["top_10_shap_features.csv", "shap_importance.csv",
-                       "shap_feature_importance.csv"])
-HOTSPOT_PATH = find_file(["hotspot_results.csv", "hotspot_ranking.csv"])
-RISK_PATH = find_file(["prediction_risk_results.csv"])
-COMPARE_PATH = find_file(["final_model_comparison.csv"])
-TEST_PATH = find_file(["test_data.csv", "X_test.csv"])
-ACTUAL_PATH = find_file(["actual_values.csv", "y_test.csv"])
-MODEL_PATH = find_file(["catboost_model.cbm", "best_catboost_model.cbm", "catboost.cbm"])
