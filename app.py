@@ -91,6 +91,6 @@ def read_csv(path):
     except Exception:
         return pd.DataFrame()
 
-GIS_PATH = find_file([
-    "gis_predictions.csv", "marine_pollution_GIS_results.csv",
-    "hotspot_results.csv", "FINAL_MARINE_POLLUTION_RESULTS.csv"
+GIS_PATH = find_file(["gis_predictions.csv", "marine_pollution_GIS_results.csv", "hotspot_results.csv", "FINAL_MARINE_POLLUTION_RESULTS.csv"])
+SUMMARY_PATH = find_file(["dashboard_summary.csv"])
+SHAP_PATH = find_file(["top_10_shap_features.csv", "shap_importance.csv",
